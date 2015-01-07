@@ -1,0 +1,506 @@
+=============================== HOW TO RUN ====================================
+
+The entry point for the test was the function solve-n-random-8-puzzles with a
+positive integer for the number of random states to generate and solve for.
+You may use this function to test random states. You will receive an output
+similar to the sample output shown below.
+
+However, if you wish to run your own created states, I have created a
+function solve-8-puzzle which takes a state and a heuristic function.
+These are the heuristic functions you can pass in:
+#'misplaced-tiles
+#'manhattan-distance
+#'manhattan-pair-distance
+
+A state is a flat list representing the initial state. For example,
+the board that looks like
+0  1  2
+3  4  5
+6  7  8
+will have a state representation (0 1 2 3 4 5 6 7 8). This is discussed in
+detail in the Problem Representation section in the Lisp code.
+
+If you wish instead to run a search using all heuristics, use the function
+solve-8-puzzle-with-all-heuristics, which simply takes a state.
+
+The goal state is (0 1 2 3 4 5 6 7 8) but to test, you simply need to provide
+initial state. I use this value hardcoded so it is not possible to change it
+without some refactoring.
+
+The heuristic was derived from the following paper:
+
+Source:
+Bauer, Bernard. (1995, January 14). The manhattan pair distance for the 15-puzzle.
+Retrieved from http://www.google.com/url?sa=t&rct=j&q=manhattan pair distance&source=web&cd=1&ved=0CBsQFjAA&url=http://disi.unitn.it/~montreso/asd/progetti/2007-08/progetto2/The_Manhattan_Pair_Distance_Heuristic_for_the_15-puzzle.pdf&ei=xvqsTtf4HamBsgK_1oWUDw&usg=AFQjCNEQJ5rd5Bjb-XJXQI1RzgFLy235BA&cad=rja
+
+Here is a simple explanation of how the algorithm works:
+The basic principle is that looking a subset of the 8-puzzle board:
+_  _
+
+y  x
+_  _
+If y and x are in the correct rows for their goal state rows but y is a number greater than x,
+the manhattan distance simply gives a distance of 2 (for these two only). However, it will take
+atleast 4 moves to swap y and x orders' in order to move either y or x downward and move the other
+into its location and move the original back around. The heuristic simply calculates the number of
+pairs that are out of order like this, for each row and column, with the restriction that each tile
+only participates in such a pairing with at most one other tile in its row and column.
+
+The algorithm outlined in the lisp code almost exactly follows page 9 of the paper, maintaining a
+list of seen rows and columns.
+
+This heuristic is admissible as shown above because it simply adds only an additional 2 to the
+manhattan distance for each distinct pair that are out of order like this. In order to really swap
+them, the blank must in correct spot as well. The pair distance assumes there are blanks all around
+the pairs (as seen above in the diagram), clearly a relaxed condition. The heuristic also clearly
+dominates manhattan distance because it is the sum of manhattan distance and the sum of pair
+distances (which is at least 0). So, manhattan pair distance >= manhattan distance for all nodes
+and expands at most as many nodes as manhattan distance.
+
+Since you only ask to prove the heuristic consistent and not my code of the heuristic, I will
+assume that my code works(I provide a simple correctness comparison in the comments on the code)
+and show that the heuristic is consistent.
+
+As for consistency, I have to show that since for all new states ns from old states os,
+h(ns) + step-cost(os, ns) >= h(os).
+or h(ns) + 1 >= h(os)
+
+Note: md and pd stand for manhattan distance and pair distance.
+h(os) = md(os) + pd(os)
+h(ns) = md(ns) + pd(ns)
+
+Need to show md(ns) + pd(ns) + 1 >= md(os) + pd(os)
+
+The following argument is similar to the following discussion but was developed after taking a look
+at it. I am citing it just to be certain:
+Source: http://www.cse.sc.edu/~mgv/csce580f08/gradPres/slidingPuzzlesHeuristicsCaoGause.ppt
+
+Assume that the tile moving from ns to os, moved along a column from one row to another. The
+argument for moving along a row from one column to another is exactly the same and follows similarly.
+
+Let or be the old row and nr be the new row and x be the tile that moved. There are three cases:
+1) If or was the goal row where x was supposed to go eventually, then
+	md(ns) = md(os) + 1
+Since nr is not a goal row, moving x into it will not generate any pair conflicts.
+If there was a pair conflict in or, then pd(ns) = pd(os) - 2. Otherwise, pd(ns) = pd(os)
+Using all of these,
+	md(ns) + pd(ns) + 1 >= md(os) + pd(os)
+	md(os) + 1 + (either pd(os) -2 or pd(os)) + 1 >= md(os) + pd(os)
+	md(os) + 2 + (either pd(os) -2 or pd(os))
+	md(os) + pd(os) + (2 or 0) >= md(os) + pd(os), which is always true.
+
+2)If nr is the goal row where x is supposed to go, then
+	md(ns) = md(os) - 1
+Since or is not a goal row, then it did not have any pair conflicts with x.
+So, pd(ns) = pd(os) or pd(ns) = pd(os) + 2 (if there are conflicts)
+Using these,
+	md(ns) + pd(ns) + 1 >= md(os) + pd(os)
+	md(os) - 1 + (either pd(os) or pd(os) + 2) + 1 >= md(os) + pd(os)
+	md(os) + pd(os) + (2 or 0) >= md(os) + pd(os), which is true.
+
+3)If nr and or were not the goal rows, then
+	md(ns) = md(os) + 1 or md(os) - 1 (depending on which direction x moved)
+Also, there should be no pair conflicts since nr and or are not goal rows, so
+	pd(ns) = pd(os)
+Thus,
+	md(ns) + pd(ns) + 1 >= md(os) + pd(os)
+	(md(os) + 1 or md(os) - 1) + pd(os) + 1 >= md(os) + pd(os)
+	md(os) + pd (os) + (2 or 0) >= md(os) + pd(os), which true
+
+So, for all moves along a column, h(ns) + step-cost(os,ns) >= h(os).
+The argument is exactly similar for moving along a row.
+
+Thus, for all possible new states from any state, h(ns) + step-cost(os, ns) >= h(os).
+So, h is consistent.
+
+==============================================================================
+****** IMPORTANT ********
+Even if f(n') >= f(n) is proven already, if f(n') = f(n), for many successors,
+the order in which they are added to the queue matters because one may go
+down a path of successors (all of same f(n)) rather than expanding nodes who
+have successors that lead to the goal faster. This may cause manhattan pair
+distance to expand more nodes than manhattan distance but only for certain
+cases. In most cases, this is not true.
+
+===============================Sample Output=================================
+
+
+I have combined the outputs for misplaced tiles, manhattan distance with
+the outputs for the heuristics, since they are supposed to operate on
+the same states anyway.
+
+The following the REPL output for calling the solve-n-random-8-puzzles with
+an input of 5. The random state is printed first with the solutions for
+misplaced tiles followed by manhattan distances followed by my extra credit
+heuristic function, labelled manhattan-pair-distance, with the nodes expanded
+for each given after the sequence of moves of the blank tile.
+
+Since manhattan distance dominates misplaced tiles, it expands
+at most as many nodes as misplaced tiles. This can be seen from any of
+the examples below. Looking at the last iteration, which uses a state that
+really shows the difference (147985 vs 9257 vs 7238 nodes expanded for misplaced tiles,
+manhattan distance and manhattan pair distance respectively), the difference between
+manhattan distance and misplaced tiles can be clearly seen (over a factor of 20).
+Since, misplaced tiles is much more relaxed problem, it will have to expand a lot
+more nodes as compared to manhattan distance which at least considers the need
+to slide blocks. Manhattan pair distance is not that much better than manhattan
+distance (about a factor of 2) because it only considers one special case in the
+manhattan distance problem and adds a cost of 2 for each such special case (one per
+row and column). This is not much of an improvement but it still adds a gain. The closer
+and closer the evaluation of a node approaches the true cost of reaching the goal from
+the node, lesser nodes are expanded. In the case where the evaluation = the true cost,
+the algorithm is perfectly omniscient and picks the goal sequence of expansions.
+
+
+CL-USER> (solve-n-random-8-puzzles 5)
+
+(8 6 4 7 3 1 0 5 2)
+MISPLACED-TILES
+(UP UP
+    RIGHT
+    DOWN
+    LEFT
+    UP
+    RIGHT
+    RIGHT
+    DOWN
+    DOWN
+    LEFT
+    UP
+    UP
+    RIGHT
+    DOWN
+    DOWN
+    LEFT
+    LEFT
+    UP
+    UP)
+6125
+MANHATTAN-DISTANCE
+(UP RIGHT
+    UP
+    LEFT
+    DOWN
+    RIGHT
+    UP
+    RIGHT
+    DOWN
+    DOWN
+    LEFT
+    UP
+    UP
+    RIGHT
+    DOWN
+    DOWN
+    LEFT
+    LEFT
+    UP
+    UP)
+435
+MANHATTAN-PAIR-DISTANCE
+(UP UP
+    RIGHT
+    DOWN
+    LEFT
+    UP
+    RIGHT
+    RIGHT
+    DOWN
+    DOWN
+    LEFT
+    UP
+    UP
+    RIGHT
+    DOWN
+    DOWN
+    LEFT
+    LEFT
+    UP
+    UP)
+248
+NEXT-ITERATION
+(4 5 0 3 6 1 8 2 7)
+MISPLACED-TILES
+(LEFT LEFT
+      DOWN
+      RIGHT
+      UP
+      RIGHT
+      DOWN
+      DOWN
+      LEFT
+      LEFT
+      UP
+      RIGHT
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      LEFT
+      UP)
+15385
+MANHATTAN-DISTANCE
+(LEFT LEFT
+      DOWN
+      RIGHT
+      UP
+      RIGHT
+      DOWN
+      DOWN
+      LEFT
+      LEFT
+      UP
+      RIGHT
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      LEFT
+      UP)
+2240
+MANHATTAN-PAIR-DISTANCE
+(LEFT LEFT
+      DOWN
+      RIGHT
+      UP
+      RIGHT
+      DOWN
+      DOWN
+      LEFT
+      LEFT
+      UP
+      RIGHT
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      LEFT
+      UP)
+1102
+NEXT-ITERATION
+(2 1 5 3 4 8 0 7 6)
+MISPLACED-TILES
+(UP RIGHT
+    UP
+    LEFT
+    DOWN
+    RIGHT
+    DOWN
+    RIGHT
+    UP
+    UP
+    LEFT
+    LEFT
+    DOWN
+    DOWN
+    RIGHT
+    UP
+    UP
+    LEFT)
+2535
+MANHATTAN-DISTANCE
+(RIGHT UP
+       UP
+       LEFT
+       DOWN
+       DOWN
+       RIGHT
+       RIGHT
+       UP
+       UP
+       LEFT
+       DOWN
+       LEFT
+       DOWN
+       RIGHT
+       UP
+       LEFT
+       UP)
+545
+MANHATTAN-PAIR-DISTANCE
+(RIGHT UP
+       UP
+       LEFT
+       DOWN
+       DOWN
+       RIGHT
+       RIGHT
+       UP
+       UP
+       LEFT
+       DOWN
+       LEFT
+       DOWN
+       RIGHT
+       UP
+       LEFT
+       UP)
+341
+NEXT-ITERATION
+(0 3 7 1 5 2 6 4 8)
+MISPLACED-TILES
+(RIGHT RIGHT
+       DOWN
+       LEFT
+       DOWN
+       LEFT
+       UP
+       RIGHT
+       UP
+       LEFT
+       DOWN
+       DOWN
+       RIGHT
+       UP
+       LEFT
+       UP
+       RIGHT
+       DOWN
+       LEFT
+       UP)
+7853
+MANHATTAN-DISTANCE
+(RIGHT RIGHT
+       DOWN
+       LEFT
+       LEFT
+       UP
+       RIGHT
+       DOWN
+       DOWN
+       LEFT
+       UP
+       UP
+       RIGHT
+       DOWN
+       LEFT
+       DOWN
+       RIGHT
+       UP
+       UP
+       LEFT)
+1133
+MANHATTAN-PAIR-DISTANCE
+(RIGHT RIGHT
+       DOWN
+       LEFT
+       LEFT
+       UP
+       RIGHT
+       DOWN
+       DOWN
+       LEFT
+       UP
+       UP
+       RIGHT
+       DOWN
+       LEFT
+       DOWN
+       RIGHT
+       UP
+       UP
+       LEFT)
+703
+NEXT-ITERATION
+(2 3 6 5 7 8 4 1 0)
+MISPLACED-TILES
+(LEFT UP
+      LEFT
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      DOWN
+      RIGHT
+      RIGHT
+      UP
+      LEFT
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      LEFT
+      DOWN
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      UP)
+147985
+MANHATTAN-DISTANCE
+(LEFT UP
+      LEFT
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      DOWN
+      RIGHT
+      RIGHT
+      UP
+      LEFT
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      LEFT
+      DOWN
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      UP
+      RIGHT
+      DOWN
+      LEFT
+      UP)
+9257
+MANHATTAN-PAIR-DISTANCE
+(LEFT UP
+      LEFT
+      DOWN
+      RIGHT
+      RIGHT
+      UP
+      UP
+      LEFT
+      DOWN
+      RIGHT
+      UP
+      LEFT
+      LEFT
+      DOWN
+      RIGHT
+      DOWN
+      LEFT
+      UP
+      RIGHT
+      RIGHT
+      UP
+      LEFT
+      LEFT
+      DOWN
+      RIGHT
+      UP
+      LEFT)
+7238
+NEXT-ITERATION
+DONE
